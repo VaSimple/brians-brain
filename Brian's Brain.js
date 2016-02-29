@@ -47,7 +47,7 @@
 		sizeY = 250,
 		cellSize = 3,
 		line = 1,
-
+		
 		log = document.querySelector('#log-block'),
 		canvas = document.querySelector('canvas'),
 		ctx = canvas.getContext('2d'),
@@ -60,19 +60,24 @@
 		colorsindex = [color.background, color.old, color.young, color.border],
 		stateMap = [],
 		tempMap = [],
-		timer = new Timer(),
+		interval = 250,
 		started = false,
 		canPaint, paintMode, generation, oldY, fps, time, repaints, fpsTotal, middleRow, twoRows, youngCells, oldCells, posX, posY, count, loop, date, printLoop, i, j, k, l, sx, sy;
 
+	function Timer() {
+		this.elapsed = 0;  
+		this.last = null;
+	}	
 	Timer.prototype = {  
 		tick: function (now) {
 			this.elapsed = (now - (this.last || now)) / 1000;
 			this.last = now},  
 		fps: function () {    
-			return Math.round(1 / this.elapsed)  
+			return (1 / this.elapsed);
 		}
 	}
-
+	var timer = new Timer();
+	
 	function startStop() {
 		if(!started) {
 			loop = requestAnimationFrame(brain); 
@@ -85,15 +90,26 @@
 	}
 
 	function preInit() {
-		if (localStorage.getItem('sizeX')) sizeX = parseInt(localStorage.getItem('sizeX'));
-		if (localStorage.getItem('sizeY')) sizeY = parseInt(localStorage.getItem('sizeY'));
-		if (localStorage.getItem('cellSize')) cellSize = parseInt(localStorage.getItem('cellSize'));
+		if (localStorage.getItem('sizeX')) {
+			sizeX = parseInt(localStorage.getItem('sizeX'));
+			document.querySelector('#sizeX').value = sizeX;
+		}
+		if (localStorage.getItem('sizeY')) {
+			sizeY = parseInt(localStorage.getItem('sizeY'));
+			document.querySelector('#sizeY').value = sizeY;
+		}
+		if (localStorage.getItem('cellSize')) {
+			cellSize = parseInt(localStorage.getItem('cellSize'));
+			document.querySelector('#cellSize').value = cellSize;
+		}
 		if (localStorage.getItem('line')) line = parseInt(localStorage.getItem('line'));
 		if (localStorage.getItem('color')) changeColor(localStorage.getItem('color'));
 		if (localStorage.getItem('slide')) {
 			document.querySelector('#settings').classList.add('hidden');
 			document.querySelector('#slide').textContent = 'settings ^';
+		
 		}
+		
 	}
 
 	function init() {
@@ -107,7 +123,7 @@
 		ctx.fillStyle = color.border;
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		time = performance.now();
+		//time = performance.now();
 		generation = 0;
 		oldY = 0;
 		fps = 0;
@@ -172,7 +188,7 @@
 				stateMap[i][j] = blank ? 0 : Math.floor(Math.random() * 3);
 				newctx.fillStyle = colorsindex[stateMap[i][j]];
 				newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
-				repaints++;
+				//repaints++;
 			}
 		}
 		
@@ -184,7 +200,6 @@
 		newctx.drawImage(clearcanvas, 0, 0);
 			for (i = 0; i < sizeX; i++) {
 				for (j = 0; j < sizeY; j++) {
-					//if ( repaint === true || !(stateMap[i][j] == 0 && tempMap[i][j] == 0) ) {
 					if (repaint === true || stateMap[i][j]) {
 						newctx.fillStyle = colorsindex[stateMap[i][j]];
 						newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
@@ -193,8 +208,7 @@
 				}
 			}
 		
-		ctx.drawImage(newcanvas, 0, 0);
-		
+		ctx.drawImage(newcanvas, 0, 0);		
 	}
 
 	function checkNeighbour(posX, posY, row) {
@@ -264,29 +278,21 @@
 
 		draw();
 		generation++;
-		fps = Math.round(1000/(performance.now() - date))
-		fpsTotal += fps;
+		//fps = Math.round(1000/(performance.now() - date))
+		fps =  timer.fps();
+		if (fps != Infinity) fpsTotal += fps;
 	}
 
-	//////////////////////
-	function Timer() {
-		this.elapsed = 0;  
-		this.last = null;
-	}
-
-
-
-	////////////////////
 
 	function print() {
 		log.innerHTML = 'Field: ' + sizeX + 'x' + sizeY + ', cell: ' + cellSize + '<br>' +
 						'Generation: ' + generation + '<br>' +
 						'Old cells: ' + oldCells + '<br>' +
 						'Young cells: ' + youngCells + '<br>' +
-						'Repaints: ' + repaints + '<br>' +
-						//'GPS: ' + fps + '<br><br>' +
-						'GPS2: ' + timer.fps() + '<br><br>' +
-						'Time running: ' + Math.round((performance.now() - time)/1000) + 's<br>' +
+						//'Repaints: ' + repaints + '<br>' +
+						'GPS: ' + Math.round(fps) + '<br><br>' +
+						//'GPS2: ' + timer.fps() + '<br><br>' +
+						//'Time running: ' + Math.round((performance.now() - time)/1000) + 's<br>' +
 						'Average GPS: ' + Math.round(fpsTotal/generation);
 	}
 
@@ -356,10 +362,10 @@
 	document.querySelector('#slide').addEventListener('click', function(event) {
 		document.querySelector('#settings').classList.toggle('hidden');
 		if (document.querySelector('#settings').classList.contains('hidden')) {
-			this.textContent = 'settings ^';
+			this.textContent = 'settings ↑';
 			localStorage.setItem('slide', true);
 		} else {
-			this.textContent = 'settings v';
+			this.textContent = 'settings ↓';
 			localStorage.removeItem('slide');
 		}
 	});
@@ -372,5 +378,7 @@
 
 	/* benchmarking mode
 		populate();
-		loop = requestAnimationFrame(brain); printLoop = window.setInterval(function() {print()}, 250); document.querySelector('#start').disabled = true;
+		startStop();
+		setTimeout(function() {startStop()}, 10000)
 	//*/ 
+	
