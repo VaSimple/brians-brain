@@ -255,7 +255,7 @@
 	}
 
 	function brainStep() {
-		date = performance.now();
+		//date = performance.now();
 		youngCells = 0;
 		oldCells = 0;
 		repaints = 0;
