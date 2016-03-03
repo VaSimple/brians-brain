@@ -92,21 +92,21 @@
 	function preInit() {
 		if (localStorage.getItem('sizeX')) {
 			sizeX = parseInt(localStorage.getItem('sizeX'));
-			document.querySelector('#sizeX').value = sizeX;
 		}
+			document.querySelector('#sizeX').value = sizeX;
 		if (localStorage.getItem('sizeY')) {
 			sizeY = parseInt(localStorage.getItem('sizeY'));
-			document.querySelector('#sizeY').value = sizeY;
 		}
+			document.querySelector('#sizeY').value = sizeY;
 		if (localStorage.getItem('cellSize')) {
 			cellSize = parseInt(localStorage.getItem('cellSize'));
-			document.querySelector('#cellSize').value = cellSize;
 		}
+			document.querySelector('#cellSize').value = cellSize;
 		if (localStorage.getItem('line')) line = parseInt(localStorage.getItem('line'));
 		if (localStorage.getItem('color')) changeColor(localStorage.getItem('color'));
 		if (localStorage.getItem('slide')) {
 			document.querySelector('#settings').classList.add('hidden');
-			document.querySelector('#slide').textContent = 'settings ^';
+			document.querySelector('#slide').textContent = 'settings ↑';
 		
 		}
 		
