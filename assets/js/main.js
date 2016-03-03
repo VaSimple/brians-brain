@@ -44,7 +44,7 @@
 	}
 
 	var sizeX = 250,
-		sizeY = 250,
+		sizeY = 200,
 		cellSize = 3,
 		line = 1,
 		
