@@ -12,13 +12,13 @@
 		<main>
 			<canvas></canvas>
 			<div id="controls">
-				<button onclick="javascript: populate();">random fill</button>
+				<button onclick="javascript: populate();">random</button>
 				<button onclick="javascript: cancelAnimationFrame(loop); window.clearInterval(printLoop); init(); populate(true); document.querySelector('#log-block').textContent = 'Welcome!'; if (started) started = false">clear</button>
 				<!-- <button id="start" onclick="javascript: loop = requestAnimationFrame(brain); printLoop = window.setInterval(function() {print()}, 250); document.querySelector('#start').disabled = true">start</button>
 				<button onclick="javascript: cancelAnimationFrame(loop); window.clearInterval(printLoop); document.querySelector('#start').disabled = false">stop</button> -->
 				<button onclick="javascript: startStop()">start / stop</button>
 				<button onclick="javascript: brainStep(); print()">next</button>
-				<button onclick="javascript: switchBorders();">borders</button>
+				<button onclick="javascript: switchBorders();">Grid On/Off</button>
 				<button id="slide">settings ↓</button>			
 			</div>
 		</main>
