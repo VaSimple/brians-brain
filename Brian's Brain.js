@@ -56,13 +56,21 @@
 		clearcanvas = document.createElement('canvas'),
 		clearctx = clearcanvas.getContext('2d'),
 		
+		youngcanvas = document.createElement('canvas'),
+		youngctx = youngcanvas.getContext('2d'),
+		oldcanvas = document.createElement('canvas'),
+		oldctx = oldcanvas.getContext('2d'),
+		
 		color = COLORS['purple'],
 		colorsindex = [color.background, color.old, color.young, color.border],
 		stateMap = [],
 		tempMap = [],
 		interval = 250,
 		started = false,
-		canPaint, paintMode, generation, oldY, fps, time, repaints, fpsTotal, middleRow, twoRows, youngCells, oldCells, posX, posY, count, loop, date, printLoop, i, j, k, l, sx, sy;
+		canPaint, paintMode, generation, oldY, fps, time, repaints, fpsTotal, middleRow, twoRows, youngCells, oldCells, posX, posY, count, loop, date, printLoop, i, j, k, l, sx, sy,
+		
+		renderer = PIXI.autoDetectRenderer(1, 1 ,{backgroundColor : '0xADD8E6'}),
+		container = new PIXI.Container();
 
 	function Timer() {
 		this.elapsed = 0;  
@@ -109,7 +117,7 @@
 			document.querySelector('#slide').textContent = 'settings ↑';
 		
 		}
-		
+		document.body.appendChild(renderer.view);
 	}
 
 	function init() {
@@ -119,6 +127,14 @@
 		newcanvas.height = canvas.height;
 		clearcanvas.width  = canvas.width;
 		clearcanvas.height = canvas.height;
+		
+		youngctx.width = 1;
+		youngctx.height = 1;
+		oldctx.width = 1;
+		oldctx.height = 1;
+		
+		renderer.resize(cellSize * sizeX + line, cellSize * sizeY + line);
+		
 
 		ctx.fillStyle = color.border;
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -133,6 +149,7 @@
 		youngCells = 0;
 		oldCells = 0;
 		createClearField();
+		drawCellTexture();
 	}
 
 	function createClearField() {
@@ -144,6 +161,13 @@
 		}
 	}
 
+	function drawCellTexture() {
+		youngctx.fillStyle = colorsindex[2];
+		oldctx.fillStyle = colorsindex[1];
+		youngctx.fillRect(0, 0, 1, 1);
+		oldctx.fillRect(0, 0, 1, 1);
+	}
+	
 	function setSize() {
 		sx = parseInt(document.getElementById('sizeX').value); 
 		if (sx > 1 ) sizeX = sx;
@@ -312,6 +336,7 @@
 	function changeColor(newColor) {
 		color = COLORS[newColor];
 		colorsindex = [color.background, color.old, color.young, color.border];
+		drawCellTexture();
 		document.querySelector('.active').classList.remove('active');
 		document.querySelector('.' + color.young).classList.add('active');
 
