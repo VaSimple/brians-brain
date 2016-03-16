@@ -56,10 +56,6 @@
 		clearcanvas = document.createElement('canvas'),
 		clearctx = clearcanvas.getContext('2d'),
 		
-		youngcanvas = document.createElement('canvas'),
-		youngctx = youngcanvas.getContext('2d'),
-		oldcanvas = document.createElement('canvas'),
-		oldctx = oldcanvas.getContext('2d'),
 		
 		color = COLORS['purple'],
 		colorsindex = [color.background, color.old, color.young, color.border],
@@ -69,8 +65,10 @@
 		started = false,
 		canPaint, paintMode, generation, oldY, fps, time, repaints, fpsTotal, middleRow, twoRows, youngCells, oldCells, posX, posY, count, loop, date, printLoop, i, j, k, l, sx, sy,
 		
-		renderer = PIXI.autoDetectRenderer(1, 1 ,{backgroundColor : '0xADD8E6'}),
+		renderer = PIXI.autoDetectRenderer(1, 1 ,{backgroundColor : 0xADD8E6}),
+		graphics = new PIXI.Graphics();
 		container = new PIXI.Container();
+		container.interactive = true;
 
 	function Timer() {
 		this.elapsed = 0;  
@@ -128,18 +126,11 @@
 		clearcanvas.width  = canvas.width;
 		clearcanvas.height = canvas.height;
 		
-		youngctx.width = 1;
-		youngctx.height = 1;
-		oldctx.width = 1;
-		oldctx.height = 1;
-		
 		renderer.resize(cellSize * sizeX + line, cellSize * sizeY + line);
 		
-
 		ctx.fillStyle = color.border;
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-		//time = performance.now();
 		generation = 0;
 		oldY = 0;
 		fps = 0;
@@ -149,7 +140,6 @@
 		youngCells = 0;
 		oldCells = 0;
 		createClearField();
-		drawCellTexture();
 	}
 
 	function createClearField() {
@@ -161,13 +151,6 @@
 		}
 	}
 
-	function drawCellTexture() {
-		youngctx.fillStyle = colorsindex[2];
-		oldctx.fillStyle = colorsindex[1];
-		youngctx.fillRect(0, 0, 1, 1);
-		oldctx.fillRect(0, 0, 1, 1);
-	}
-	
 	function setSize() {
 		sx = parseInt(document.getElementById('sizeX').value); 
 		if (sx > 1 ) sizeX = sx;
@@ -212,11 +195,29 @@
 				stateMap[i][j] = blank ? 0 : Math.floor(Math.random() * 3);
 				newctx.fillStyle = colorsindex[stateMap[i][j]];
 				newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
-				//repaints++;
 			}
 		}
 		
 		ctx.drawImage(newcanvas, 0, 0);
+	}
+	
+	var colorCodes = [0xFFFFFF, 0xDDA0DD, 0x800080];
+	
+	function populate2() {
+		for (i = 0; i < sizeX; i++) {
+			stateMap[i] = new Array(sizeY);
+			for (j = 0; j < sizeY; j++) {
+				stateMap[i][j] = Math.floor(Math.random() * 3);
+				
+				graphics.beginFill(colorCodes[stateMap[i][j]]);
+				graphics.drawRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
+				//newctx.fillStyle = colorsindex[stateMap[i][j]];
+				//newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
+			}
+		}
+		container.addChild(graphics);
+		renderer.render(container);
+		//ctx.drawImage(newcanvas, 0, 0);
 	}
 
 	function draw(repaint) {
@@ -227,14 +228,32 @@
 					if (repaint === true || stateMap[i][j]) {
 						newctx.fillStyle = colorsindex[stateMap[i][j]];
 						newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
-						repaints++;
 					}
 				}
 			}
 		
 		ctx.drawImage(newcanvas, 0, 0);		
 	}
-
+	
+	function draw2(repaint) {
+		
+		//newctx.drawImage(clearcanvas, 0, 0);
+			for (i = 0; i < sizeX; i++) {
+				for (j = 0; j < sizeY; j++) {
+					//if (repaint === true || stateMap[i][j]) {
+						graphics.beginFill(colorCodes[stateMap[i][j]]);
+						graphics.drawRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
+						//newctx.fillStyle = colorsindex[stateMap[i][j]];
+						//newctx.fillRect(line + i * cellSize, line + j * cellSize, cellSize - line, cellSize - line);
+					//}
+				}
+			}
+		container.addChild(graphics);
+		renderer.render(container);
+		graphics.clear();
+		//ctx.drawImage(newcanvas, 0, 0);		
+	}
+	
 	function checkNeighbour(posX, posY, row) {
 		if (posX < 0) posX = sizeX - 1;
 			else if (posX >= sizeX) posX = 0;
@@ -279,7 +298,6 @@
 	}
 
 	function brainStep() {
-		//date = performance.now();
 		youngCells = 0;
 		oldCells = 0;
 		repaints = 0;
@@ -300,9 +318,9 @@
 			}
 		}
 
-		draw();
+		//draw();
+		draw2();
 		generation++;
-		//fps = Math.round(1000/(performance.now() - date))
 		fps =  timer.fps();
 		if (fps != Infinity) fpsTotal += fps;
 	}
@@ -315,8 +333,6 @@
 						'Young cells: ' + youngCells + '<br>' +
 						//'Repaints: ' + repaints + '<br>' +
 						'GPS: ' + Math.round(fps) + '<br><br>' +
-						//'GPS2: ' + timer.fps() + '<br><br>' +
-						//'Time running: ' + Math.round((performance.now() - time)/1000) + 's<br>' +
 						'Average GPS: ' + Math.round(fpsTotal/generation);
 	}
 
@@ -336,7 +352,6 @@
 	function changeColor(newColor) {
 		color = COLORS[newColor];
 		colorsindex = [color.background, color.old, color.young, color.border];
-		drawCellTexture();
 		document.querySelector('.active').classList.remove('active');
 		document.querySelector('.' + color.young).classList.add('active');
 
