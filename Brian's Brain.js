@@ -235,6 +235,8 @@
 		ctx.drawImage(newcanvas, 0, 0);		
 	}
 	
+	
+
 	function draw2(repaint) {
 		
 		//newctx.drawImage(clearcanvas, 0, 0);
