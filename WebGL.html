@@ -397,7 +397,7 @@
 		
 		var process, started, gen, game, skip,
 		cellCount = 512,
-		cellSize = 2,
+		cellSize = 1,
 		interval = 50;
 		
 		if (localStorage.getItem('cellSize')) {
@@ -503,7 +503,7 @@
 		
 		function reset() 
 		{
-			cellSize = 2;
+			cellSize = 1;
 			localStorage.setItem('cellSize', cellSize);
 			
 			cellCount = 512;
