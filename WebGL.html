@@ -1,0 +1,519 @@
+﻿<html>
+<head>
+	<meta charset="utf-8">
+	<title>Brian's Brain</title>
+	<meta name="author" content="Volodchenko Vasily">
+	<style>
+		html, body {
+						height: 100%;
+						font: 18px sans-serif;
+		}
+		body {
+			background: #AAAAAA;
+		}
+		input {
+			padding: 5px;
+			font-size: 14px;
+			width: 120px;
+		}
+		canvas {
+			margin: 25px;
+		}
+		button {
+			background: #8E44AD;
+			border: 0;
+			border-radius: 3px;
+			font-size: 16px;
+			color: #FFF;
+			padding: 10px 20px;
+			margin: 0 4px;
+			text-shadow: 0 1px 2px black;
+			text-transform: uppercase;
+			transition: .4s all
+		}
+		div {
+			margin-left: 70px;
+			margin-top: 20px;
+		}
+		p {
+			margin-left: 160px;
+		}
+	</style>
+    <script id="shader-fs" type="x-shader/x-fragment">
+        uniform sampler2D uSampler1;
+		
+		precision mediump float;
+		varying vec2 vTextureCoord;
+		
+		void main(void) {
+			vec2 norm = (vTextureCoord + vec2(1,1))/vec2(2,2);
+            gl_FragColor = texture2D(uSampler1, norm);
+			if(gl_FragColor.r == 0.0) { //старая
+				gl_FragColor = vec4(1.0, 165.0/256.0, 0.0, 1.0);
+			}
+			else if(gl_FragColor.g == 0.0) { //молодая
+				gl_FragColor = vec4(248.0/256.0, 0.0, 0.0, 1.0);
+			}
+        }
+    </script>
+	
+	<script id="shader-fs-compute" type="x-shader/x-fragment">
+        uniform sampler2D uSampler;
+		
+		precision mediump float;
+		uniform vec2 uScale;
+		
+		precision mediump float;
+		uniform float uSize;
+		
+		precision mediump float;
+		varying vec2 vTextureCoord;
+		
+		void main(void) {
+			vec2 norm = (vTextureCoord + vec2(1.0,1.0))* uScale / vec2(2.0,2.0);
+			float offset = 1.0/uSize; //сдвиг
+			vec2 lt = norm + vec2(-offset, -offset);
+			vec2 t = norm + vec2(0.0, -offset);
+			vec2 rt = norm + vec2(offset, -offset);
+			vec2 r = norm + vec2(offset, 0.0);
+			vec2 rb = norm + vec2(offset, offset);
+			vec2 b = norm + vec2(0, offset);
+			vec2 lb = norm + vec2(-offset, offset);
+			vec2 l = norm + vec2(-offset, 0);
+			
+			vec4 color = texture2D(uSampler, norm);
+			
+			if(color.r == 1.0 && color.g == 0.0) {
+				//Молодая стареет
+				color = vec4(0.0, 1.0, 0.0, 1.0);
+			}
+			else if(color.r == 1.0 && color.g == 1.0)
+			{
+				//Мёртвая возраждается, если рядом 2 молодых соседа
+				int count = 0;
+				count += (texture2D(uSampler, lt).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, t).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, rt).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, r).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, rb).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, b).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, lb).g == 0.0) ? 1 : 0;
+				count += (texture2D(uSampler, l).g == 0.0) ? 1 : 0;
+				if(count == 2)
+				{
+					color = vec4(1.0, 0.0, 0.0, 1.0);
+				}
+			}
+			else {
+				//Старая умирает
+				color = vec4(1.0, 1.0, 1.0, 1.0);
+			}
+			
+			gl_FragColor = color;
+        }
+    </script>
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+		attribute vec2 aVertexPosition;
+		varying vec2 vTextureCoord;
+		
+		void main(void) {
+			gl_Position = vec4(aVertexPosition, 0, 1);
+			vTextureCoord = aVertexPosition;
+		}
+    </script>
+	
+	
+</head>
+
+
+<body onload='init()'>
+
+  <div id="controls">
+	<p id='info'>Field size in cells, cell size in px, time interval in msec.</p>
+	<button onclick="javascript: startStop()">start / stop</button>
+	<input id="cellCount" placeholder="field size (in cells)" type="number">
+	<input id="cellSize" placeholder="cell size (in px)" type="number">
+	<input id="interval" placeholder="interval (in ms)" type="number">
+	<button onclick="javascript: apply()">apply</button>
+	<button onclick="javascript: reset()">reset</button>
+
+  </div>
+  <canvas id="glcanvas" width="1024" height="1024">
+    Your browser doesn't appear to support the HTML5 <code>&lt;canvas&gt;</code> element.
+  </canvas>
+</body>
+<script type="text/javascript">
+	var Brain = {};
+	//создание модуль
+	(function (Brain) {
+		var gl;
+		var size;
+		var scale;
+		
+		var squareVerticesBuffer;
+		var shaderProgram;
+		var shaderProgramCompute;
+		var vertexPositionAttribute;
+		var rtts;
+
+		Brain.start = function start(canvas, cellCount, field, cellSize) {
+			size = cellCount;
+			scale = cellSize;
+			canvas.width = size * cellSize;
+			canvas.height = size * cellSize;
+			initWebGL(canvas);
+		  
+		  
+		  if (gl) {
+			gl.clearColor(0.0, 0.0, 0.0, 1.0);
+			gl.clearDepth(1.0);               
+			gl.enable(gl.DEPTH_TEST);         
+			gl.depthFunc(gl.LEQUAL);          
+
+			shaderProgram = initShaders("shader-fs", "shader-vs");
+			shaderProgramCompute = initShaders("shader-fs-compute", "shader-vs");
+
+			initBuffers(); //инициализация буфера с вершинными координатaми
+			
+			var rtt1 = initTextureFramebuffer();
+			var rtt2 = initTextureFramebuffer();
+			rtts = [rtt1, rtt2];
+			initTextures(field);
+						
+			return {draw: drawScene, compute: compute};
+		  }
+		  
+		  return false;
+		}
+		
+		function initTextures(field) {
+			var x,y;
+			var array = [];
+			var row, cellType;
+			for(y=0; y < field.length; ++y)
+			{
+				row = field[y];
+				for(x=0; x < row.length; ++x)
+				{
+					cellType = row[x];
+					if(cellType < 1)
+					{
+						array.push(255);
+						array.push(255);
+						array.push(255);
+						array.push(255);
+					}
+					else if(cellType < 2)
+					{
+						array.push(255);
+						array.push(0);
+						array.push(0);
+						array.push(255);
+					}
+					else
+					{
+						array.push(0);
+						array.push(255);
+						array.push(0);
+						array.push(255);						
+					}
+				}
+			}
+			
+			textureFromPixelArray(gl, array, gl.RGBA, size, size);
+		}
+
+		function textureFromPixelArray(gl, dataArray, type, width, height) {
+			var dataTypedArray = new Uint8Array(dataArray);
+			var texture = rtts[0].texture; //старт, инициализация начального состояния
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.texImage2D(gl.TEXTURE_2D, 0, type, width, height, 0, type, gl.UNSIGNED_BYTE, dataTypedArray);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		}
+		
+		function initTextureFramebuffer() {
+			var rttFramebuffer = gl.createFramebuffer();
+			gl.bindFramebuffer(gl.FRAMEBUFFER, rttFramebuffer);
+			rttFramebuffer.width = size;
+			rttFramebuffer.height = size;
+			
+			var rttTexture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, rttTexture); //в дальнейшем явно не указывается
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rttFramebuffer.width, rttFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+			
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rttTexture, 0);
+			
+			//завершение
+			gl.bindTexture(gl.TEXTURE_2D, null);
+			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			
+			return {framebuffer: rttFramebuffer, texture: rttTexture };
+		}
+
+		function initWebGL(canvas) {
+		  gl = null;
+
+		  try {
+			gl = canvas.getContext("experimental-webgl");
+		  }
+		  catch(e) {
+		  }
+
+		  // If we don't have a GL context, give up now
+
+		  if (!gl) {
+			alert("Unable to initialize WebGL. Your browser may not support it.");
+		  }
+		}
+
+		function initBuffers() {
+		  squareVerticesBuffer = gl.createBuffer();
+		  gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+
+		  var vertices = [
+			1,  1,   0.0,
+			-1, 1,   0.0,
+			1,  -1,   0.0,
+			-1, -1,  0.0, 
+		  ];
+
+		  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		}
+		
+		function compute() {
+			gl.bindFramebuffer(gl.FRAMEBUFFER, rtts[1].framebuffer); //render to 2nd texture's buffer
+			
+			gl.useProgram(shaderProgramCompute);
+			//привязка вершин
+			vertexPositionAttribute = gl.getAttribLocation(shaderProgramCompute, "aVertexPosition");
+			gl.enableVertexAttribArray(vertexPositionAttribute);
+			gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+			gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+			
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, rtts[0].texture);
+			gl.uniform1i(gl.getUniformLocation(shaderProgramCompute, "uSampler"), 0);
+			
+			gl.uniform1f(gl.getUniformLocation(shaderProgramCompute, "uSize"), size);
+			gl.uniform2fv(gl.getUniformLocation(shaderProgramCompute, "uScale"), [scale, scale]);
+			
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //отрисовка
+			
+			rtts.reverse(); //смена
+		}
+
+		function drawScene() {
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null); //отвязка от буфера
+			
+			gl.useProgram(shaderProgram);
+			//привязка вершин
+			vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+			gl.enableVertexAttribArray(vertexPositionAttribute);
+			gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+			gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+			
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, rtts[0].texture);
+			gl.uniform1i(gl.getUniformLocation(shaderProgram, "uSampler1"), 0);
+					
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		}
+
+		function initShaders(fs_name, vs_name) {
+		  var fragmentShader = getShader(gl, fs_name);
+		  var vertexShader = getShader(gl, vs_name);
+
+		  var shaderProgram = gl.createProgram();
+		  gl.attachShader(shaderProgram, vertexShader);
+		  gl.attachShader(shaderProgram, fragmentShader);
+		  gl.linkProgram(shaderProgram);
+
+		  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+			alert("Unable to initialize the shader program: " + gl.getProgramInfoLog(shader));
+		  }
+		  
+		  return shaderProgram;
+		}
+
+		function getShader(gl, id) {
+		  var shaderScript = document.getElementById(id);
+
+		  // Didn't find an element with the specified ID; abort.
+
+		  if (!shaderScript) {
+			return null;
+		  }
+
+		  // Walk through the source element's children, building the
+		  // shader source string.
+
+		  var theSource = "";
+		  var currentChild = shaderScript.firstChild;
+
+		  while(currentChild) {
+			if (currentChild.nodeType == 3) {
+			  theSource += currentChild.textContent;
+			}
+
+			currentChild = currentChild.nextSibling;
+		  }
+
+		  // Now figure out what type of shader script we have,
+		  // based on its MIME type.
+
+		  var shader;
+
+		  if (shaderScript.type == "x-shader/x-fragment") {
+			shader = gl.createShader(gl.FRAGMENT_SHADER);
+		  } else if (shaderScript.type == "x-shader/x-vertex") {
+			shader = gl.createShader(gl.VERTEX_SHADER);
+		  } else {
+			return null;  // Unknown shader type
+		  }
+
+		  // Send the source to the shader object
+
+		  gl.shaderSource(shader, theSource);
+
+		  // Compile the shader program
+
+		  gl.compileShader(shader);
+
+		  // See if it compiled successfully
+
+		  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+			alert("An error occurred compiling the shaders: " + gl.getShaderInfoLog(shader));
+			return null;
+		  }
+
+		  return shader;
+		}
+	})(Brain);
+		
+		var process, started, gen, game, skip,
+		cellCount = 1024,
+		cellSize = 2,
+		interval = 50;
+		
+		if (localStorage.getItem('cellSize')) {
+			cellSize = parseInt(localStorage.getItem('cellSize'));
+		}
+		document.querySelector('#cellSize').value = cellSize;
+		
+		if (localStorage.getItem('cellCount')) {
+			cellCount = parseInt(localStorage.getItem('cellCount'));
+		}
+		document.querySelector('#cellCount').value = cellCount;
+		
+		if (localStorage.getItem('interval')) {
+			interval = parseInt(localStorage.getItem('interval'));
+		}
+		document.querySelector('#interval').value = interval;
+		
+		function init()
+		{
+			{
+				var canvas = document.getElementById("glcanvas");
+				var field = [], y, x;
+				for(y = 0; y < cellCount; ++y)
+				{
+					field.push([]);
+					for(x = 0; x < cellCount; ++x)
+					{
+
+						var cellType = Math.floor(Math.random()*3);
+						field[y].push(cellType);
+					}
+				}
+				
+				var alive = 1;
+
+				
+				game = Brain.start(canvas, cellCount, field, cellSize);
+				skip = 0;
+				gen = 0;
+			}
+			
+			if(game) {
+				game.draw();
+			}
+		}
+		
+		function brainSteps() {
+			if(game) {
+				process = setInterval(function() {
+					game.compute();
+					if(skip % 1 == 0)
+					{
+						game.draw();
+						skip = 0;
+					}
+					skip++;
+					gen++;
+					var speed = Math.round(1000/interval);
+					if (speed > 250) speed = 250;
+					document.getElementById('info').innerHTML = 'Field size in cells, cell size in px, time interval in msec. Speed: ' + speed + ' GPS. Generation №: ' + gen + '.';
+				}, interval);
+			}
+		}
+		
+		function startStop() 
+		{
+			if(!started) 
+			{
+				brainSteps(); 
+			} else 
+			{
+				clearInterval(process);
+			}
+			started = !started;
+		}
+		
+		
+		
+		function apply() 
+		{
+			cellSize = parseInt(document.getElementById('cellSize').value);
+			cellCount = parseInt(document.getElementById('cellCount').value);
+			interval = parseInt(document.getElementById('interval').value);
+			
+			var flag = false;
+			var totalSize = cellSize * cellCount;
+			for (var i = 1; i < 13; i++) 
+			{
+				console.log(Math.pow(2, i));
+				if (totalSize == Math.pow(2, i)) {flag = true; break}
+				
+			}
+			
+			if(flag) 
+			{
+				localStorage.setItem('cellSize', cellSize);
+				localStorage.setItem('cellCount', cellCount);
+				localStorage.setItem('interval', interval);
+				
+				location.reload();
+			} else alert('Incorrect total size. \n Possible values of size of field: 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096. \n Possible values of size of cell: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048. \n This should be true: Size of cell * Size of field <= 4096.');
+		}
+		
+		function reset() 
+		{
+			cellSize = 2;
+			localStorage.setItem('cellSize', cellSize);
+			
+			cellCount = 1024;
+			localStorage.setItem('cellCount', cellCount);
+			
+			interval = 50;
+			localStorage.setItem('interval', interval);
+			
+			location.reload();
+		}
+		
+	</script>
+</html>
